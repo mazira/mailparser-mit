@@ -1,15 +1,15 @@
 {
-  "name": "mailparser",
-  "description": "Asynchronous and non-blocking parser for mime encoded e-mail messages",
+  "name": "mailparser-mit",
+  "description": "MIT-licensed asynchronous and non-blocking parser for mime encoded e-mail messages",
   "version": "0.6.2",
   "author": "Andris Reinman",
   "maintainers": [{
-    "name": "andris",
-    "email": "andris@node.ee"
+    "name": "Ross Johnson",
+    "email": "ross@mazira.com"
   }],
   "repository": {
     "type": "git",
-    "url": "http://github.com/andris9/mailparser.git"
+    "url": "http://github.com/mazira/mailparser-mit.git"
   },
   "scripts": {
     "test": "nodeunit test/"
@@ -26,6 +26,15 @@
     "nodeunit": "^0.10.2"
   },
   "keywords": [
+    "mailparser",
+    "emailparser",
+    "mail-parser",
+    "email-parser",
+    "e-mail-parser",
+    "mime-parser",
+    "mime-message",
+    "mime-message-parser",
+    "email",
     "e-mail",
     "mime",
     "parser"

@@ -1,49 +1,52 @@
-MailParser
-==========
+# MailParser-MIT
 
-[![Build Status](https://api.travis-ci.org/andris9/mailparser.svg)](http://travis-ci.org/andris9/mailparser)
-[![NPM version](https://badge.fury.io/js/mailparser.svg)](http://badge.fury.io/js/mailparser)
+[![NPM version](https://badge.fury.io/js/mailparser-mit.svg)](http://badge.fury.io/js/mailparser-mit)
 
-**MailParser** is an asynchronous and non-blocking parser for
+**MailParser-MIT** is an asynchronous and non-blocking parser for
 [node.js](http://nodejs.org) to parse mime encoded e-mail messages.
 Handles even large attachments with ease - attachments can be parsed
 in chunks and streamed if needed.
 
-### Community version
+## Community version
 
-This module is unmaintained. For an upgrade see [Mailparser2](https://gitlab.com/nodemailer/mailparser2). The upgraded version is more effective, has vastly better stream handling through Streams3 interface and is able to build up more accurate versions of HTML and Text contents.
+This module is a fork of Andris Reinman's [MailParser](https://github.com/nodemailer/mailparser) module, which recently switched licenses during a large update. I will continue to update and maintain this fork and keep it MIT licensed.
 
-### Usage
+Because I've accepted the part of me that wants to fix things that aren't broken, I plan to:
+- Convert to TypeScript
+- Separate into a cascade of Stream processors, for more flexibility
+- Add support for RTF bodies, including RTF-encoded HTML
+- Add more test cases, especially for exotic encodings
+- Continue support for [iconv-lite](https://github.com/ashtuchkin/iconv-lite) and [iconv](https://github.com/bnoordhuis/node-iconv)
 
-**MailParser** parses raw source of e-mail messages into a structured object.
+## Now accepting and test cases and pull requests!
+
+Do you have emails that **MailParser-MIT** fails to process? Please open an issue and I will take a look. If the test emails are sensitive, you can email them to me at ross@mazira.com, and I will try to generate a simple MIT-licensed test case for inclusion in this repository.
+
+## Overview
+
+**MailParser-MIT** parses raw source of e-mail messages into a structured object.
 
 No need to worry about charsets or decoding *quoted-printable* or
-*base64* data, **MailParser** does all of it for you. All the textual output
-from **MailParser** (subject line, addressee names, message body) is always UTF-8.
+*base64* data, **MailParser-MIT** does all of it for you. All the textual output
+from **MailParser-MIT** (subject line, addressee names, message body) is always UTF-8.
 
 For a 25MB e-mail it takes less than a second to parse if attachments are not streamed but buffered and about 3-4 seconds if they are streamed. Expect high RAM usage though if you do not stream the attachments.
 
 If you want to send e-mail instead of parsing it, check out my other module [Nodemailer](https://github.com/andris9/Nodemailer).
 
-## ICONV NOTICE
+### ICONV NOTICE
 
-Since v0.4 `node-iconv` is not included by default as a dependency. If you need to support encodings not covered by `iconv-lite` you should add `iconv` as a dependency to your own project so `mailparser` could pick it up.
+Since v0.4 `node-iconv` is not included by default as a dependency. If you need to support encodings not covered by `iconv-lite` you should add `iconv` as a dependency to your own project so `mailparser-mit` could pick it up.
 
-## Support mailparser development
-
-[![Donate to author](https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=DB26KWR2BQX5W)
-
-Installation
-------------
+## Installation
 
     npm install mailparser
 
-Usage
------
+## Usage
 
 Require MailParser module
 ```javascript
-var MailParser = require("mailparser").MailParser;
+var MailParser = require("mailparser-mit").MailParser;
 ```
 Create a new MailParser object
 ```javascript
@@ -96,7 +99,7 @@ mailparser.on("end", function(mail){
 This example decodes an e-mail from a string
 
 ```javascript
-var MailParser = require("mailparser").MailParser;
+var MailParser = require("mailparser-mit").MailParser;
 var mailparser = new MailParser();
 
 var email = "From: 'Sender Name' <sender@example.com>\r\n"+
@@ -203,13 +206,13 @@ in bytes and `checksum` property which is a `md5` hash of the file.
 
 ### Running tests
 
-Install **MailParser** with dev dependencies
+Install **MailParser-MIT** with dev dependencies
 ```bash
-npm install --dev mailparser
+npm install --dev mailparser-mit
 ```
 And then run
 ```bash
-npm test mailparser
+npm test mailparser-mit
 ```
 There aren't many tests yet but basics should be covered.
 
