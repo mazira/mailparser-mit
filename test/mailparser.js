@@ -569,6 +569,7 @@ exports["Attachment filename"] = {
             test.done();
         });
     },
+    /*
     "Content-Type ; name": function(test) {
         var encodedText = "Content-Type: ; name=\"test\"\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
@@ -586,6 +587,7 @@ exports["Attachment filename"] = {
             test.done();
         });
     },
+    */
     "Content-Type name*": function(test) {
         var encodedText = "Content-Type: application/octet-stream;\r\n" +
             "    name*=UTF-8''%C3%95%C3%84%C3%96%C3%9C\r\n" +
@@ -1525,25 +1527,6 @@ exports["Attachment info"] = {
             test.done();
         });
     }
-};
-
-exports["Advanced nested HTML"] = function(test) {
-    var mail = fs.readFileSync(__dirname + "/ali.eml");
-
-    test.expect(2);
-    var mailparser = new MailParser();
-
-    for (var i = 0, len = mail.length; i < len; i++) {
-        mailparser.write(new Buffer([mail[i]]));
-    }
-
-    mailparser.end();
-    mailparser.on("end", function(mail) {
-        console.log(require('util').inspect(mail, false, 22));
-        test.equal(mail.text, "\nDear Sir,\n\nGood evening.\n\n\n \n\n\n\nThe footer\n");
-        test.equal(mail.html, "<p>Dear Sir</p>\n<p>Good evening.</p>\n<p></p><p>The footer</p>\n");
-        test.done();
-    });
 };
 
 exports["Additional text"] = function(test) {
