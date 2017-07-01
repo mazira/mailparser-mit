@@ -1,43 +1,43 @@
 "use strict";
 
-var MailParser = require("../lib/mailparser").MailParser,
-    encodinglib = require("encoding"),
-    fs = require("fs");
+const fs = require('fs');
+const assert = require('assert');
 
-exports["General tests"] = {
-    "Many chunks": function(test) {
-        var encodedText = "Content-Type: text/plain; charset=utf-8\r\n" +
+const encodinglib = require("encoding");
+const MailParser = require("../lib/mailparser").MailParser;
+
+describe("General tests", () => {
+    it("Many chunks", (done) => {
+        const encodedText = "Content-Type: text/plain; charset=utf-8\r\n" +
             "\r\n" +
             "ÕÄ\r\n" +
             "ÖÜ", // \r\nÕÄÖÜ
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
         mailparser.end();
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄ\nÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄ\nÖÜ");
+            done();
         });
-    },
+    });
 
-    "Many chunks - split line endings": function(test) {
-        var chunks = [
+    it("Many chunks - split line endings", (done) => {
+        const chunks = [
             "Content-Type: text/plain; charset=utf-8\r",
             "\nSubject: Hi Mom\r\n\r\n",
             "hello"
         ];
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        var writeNextChunk = function() {
-            var chunk = chunks.shift();
+        const writeNextChunk = () => {
+            const chunk = chunks.shift();
             if (chunk !== undefined) {
                 mailparser.write(chunk, 'utf8');
                 if (typeof setImmediate == "function") {
@@ -50,9 +50,9 @@ exports["General tests"] = {
             }
         };
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "hello");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "hello");
+            done();
         });
 
         if (typeof setImmediate == "function") {
@@ -60,38 +60,36 @@ exports["General tests"] = {
         } else {
             process.nextTick(writeNextChunk);
         }
-    },
+    });
 
-    "Headers only": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\n" +
+    it("Headers only", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\n" +
             "Subject: ÕÄÖÜ",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.subject, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.subject, "ÕÄÖÜ");
+            done();
         });
-    },
+    });
 
-    "Body only": function(test) {
-        var encodedText = "\r\n" +
+    it("Body only", (done) => {
+        const encodedText = "\r\n" +
             "===",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "===");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "===");
+            done();
         });
-    },
+    });
 
-    "Different line endings": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r" +
+    it("Different line endings", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r" +
             "Subject: ÕÄÖÜ\n" +
             "\r" +
             "1234\r\n" +
@@ -100,18 +98,17 @@ exports["General tests"] = {
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(2);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.subject, "ÕÄÖÜ");
-            test.equal(mail.text, "1234\nÕÄÖÜ\nÜÖÄÕ\n1234");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.subject, "ÕÄÖÜ");
+            assert.strictEqual(mail.text, "1234\nÕÄÖÜ\nÜÖÄÕ\n1234");
+            done();
         });
-    },
+    });
 
-    "Headers event": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    it("Headers event", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "X-Test: =?UTF-8?Q?=C3=95=C3=84?= =?UTF-8?Q?=C3=96=C3=9C?=\r\n" +
             "Subject: ABCDEF\r\n" +
             "\r\n" +
@@ -124,298 +121,288 @@ exports["General tests"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(3);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        mailparser.on("headers", function(headers) {
-            test.equal(headers.subject, "ABCDEF");
-            test.equal(headers['x-test'], "ÕÄÖÜ");
+        let count = 0;
+        mailparser.on("headers", (headers) => {
+            count++;
+            assert.strictEqual(headers.subject, "ABCDEF");
+            assert.strictEqual(headers['x-test'], "ÕÄÖÜ");
         });
 
         mailparser.end(mail);
-        mailparser.on("end", function() {
-            test.ok(1, "Parsing ended");
-            test.done();
+        mailparser.on("end", () => {
+            assert.strictEqual(count, 1);
+            done();
         });
-    },
+    });
 
-    "No priority": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r" +
+    it("No priority", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r" +
             "Subject: ÕÄÖÜ\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.priority, "normal");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.priority, "normal");
+            done();
         });
-    },
+    });
 
-    "MS Style priority": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r" +
+    it("MS Style priority", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r" +
             "Subject: ÕÄÖÜ\n" +
             "X-Priority: 1 (Highest)\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.priority, "high");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.priority, "high");
+            done();
         });
-    },
+    });
 
-    "Single reference": function(test) {
-        var encodedText = "Content-type: text/plain\r" +
+    it("Single reference", (done) => {
+        const encodedText = "Content-type: text/plain\r" +
             "References: <mail1>\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.references, ["mail1"]);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.references, ["mail1"]);
+            done();
         });
-    },
+    });
 
-    "Multiple reference values": function(test) {
-        var encodedText = "Content-type: text/plain\r" +
+    it("Multiple reference values", (done) => {
+        const encodedText = "Content-type: text/plain\r" +
             "References: <mail1>\n" +
             "    <mail2> <mail3>\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.references, ["mail1", "mail2", "mail3"]);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.references, ["mail1", "mail2", "mail3"]);
+            done();
         });
-    },
+    });
 
-    "Multiple reference fields": function(test) {
-        var encodedText = "Content-type: text/plain\r" +
+    it("Multiple reference fields", (done) => {
+        const encodedText = "Content-type: text/plain\r" +
             "References: <mail1>\n" +
             "References: <mail3>\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.references, ["mail1", "mail3"]);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.references, ["mail1", "mail3"]);
+            done();
         });
-    },
+    });
 
-    "Single in-reply-to": function(test) {
-        var encodedText = "Content-type: text/plain\r" +
+    it("Single in-reply-to", (done) => {
+        const encodedText = "Content-type: text/plain\r" +
             "in-reply-to: <mail1>\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.inReplyTo, ["mail1"]);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.inReplyTo, ["mail1"]);
+            done();
         });
-    },
+    });
 
-    "Multiple in-reply-to values": function(test) {
-        var encodedText = "Content-type: text/plain\r" +
+    it("Multiple in-reply-to values", (done) => {
+        const encodedText = "Content-type: text/plain\r" +
             "in-reply-to: <mail1>\n" +
             "    <mail2> <mail3>\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.inReplyTo, ["mail1", "mail2", "mail3"]);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.inReplyTo, ["mail1", "mail2", "mail3"]);
+            done();
         });
-    },
+    });
 
-    "Multiple in-reply-to fields": function(test) {
-        var encodedText = "Content-type: text/plain\r" +
+    it("Multiple in-reply-to fields", (done) => {
+        const encodedText = "Content-type: text/plain\r" +
             "in-reply-to: <mail1>\n" +
             "in-reply-to: <mail3>\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.inReplyTo, ["mail1", "mail3"]);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.inReplyTo, ["mail1", "mail3"]);
+            done();
         });
-    },
+    });
 
-    "Reply To address": function(test) {
-        var encodedText = "Reply-TO: andris <andris@disposebox.com>\r" +
+    it("Reply To address", (done) => {
+        const encodedText = "Reply-TO: andris <andris@disposebox.com>\r" +
             "Subject: ÕÄÖÜ\n" +
             "\r" +
             "1234",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.replyTo, [{
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.replyTo, [{
                 name: "andris",
                 address: "andris@disposebox.com"
             }]);
-            test.done();
+            done();
         });
-    }
+    });
+});
 
-};
-
-exports["Text encodings"] = {
-
-    "Plaintext encoding: Default": function(test) {
-        var encodedText = [13, 10, 213, 196, 214, 220], // \r\nÕÄÖÜ
+describe("Text encodings", () => {
+    it("Plaintext encoding: Default", (done) => {
+        const encodedText = [13, 10, 213, 196, 214, 220], // \r\nÕÄÖÜ
             mail = new Buffer(encodedText);
 
-        test.expect(1);
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
+    });
 
-    "Plaintext encoding: Header defined": function(test) {
-        var encodedText = "Content-Type: TEXT/PLAIN; CHARSET=UTF-8\r\n" +
+    it("Plaintext encoding: Header defined", (done) => {
+        const encodedText = "Content-Type: TEXT/PLAIN; CHARSET=UTF-8\r\n" +
             "\r\n" +
             "ÕÄÖÜ",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
+    });
 
-    "HTML encoding: From <meta>": function(test) {
-        var encodedText = "Content-Type: text/html\r\n" +
+    it("HTML encoding: From <meta>", (done) => {
+        const encodedText = "Content-Type: text/html\r\n" +
             "\r\n" +
             "<html><head><meta charset=\"utf-8\"/></head><body>ÕÄÖÜ",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal((mail.html || "").substr(-4), "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual((mail.html || "").substr(-4), "ÕÄÖÜ");
+            done();
         });
-    },
+    });
 
-    "HTML encoding: Header defined": function(test) {
-        var encodedText = "Content-Type: text/html; charset=iso-UTF-8\r\n" +
+    it("HTML encoding: Header defined", (done) => {
+        const encodedText = "Content-Type: text/html; charset=iso-UTF-8\r\n" +
             "\r\n" +
             "ÕÄÖÜ",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.html, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.html, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Mime Words": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\n" +
+    });
+
+    it("Mime Words", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\n" +
             "From: =?utf-8?q??= <sender@email.com>\r\n" +
             "To: =?ISO-8859-1?Q?Keld_J=F8rn_Simonsen?= <to@email.com>\r\n" +
             "Subject: =?iso-8859-1?Q?Avaldu?= =?iso-8859-1?Q?s_lepingu_?=\r\n =?iso-8859-1?Q?l=F5petamise?= =?iso-8859-1?Q?ks?=\r\n",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.subject, "Avaldus lepingu lõpetamiseks");
-            test.equal(mail.from[0].name, "");
-            test.equal(mail.to[0].name, "Keld Jørn Simonsen");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.subject, "Avaldus lepingu lõpetamiseks");
+            assert.strictEqual(mail.from[0].name, "");
+            assert.strictEqual(mail.to[0].name, "Keld Jørn Simonsen");
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Binary attachment encodings"] = {
-    "Quoted-Printable": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+describe("Binary attachment encodings", () => {
+    it("Quoted-Printable", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(Array.prototype.slice.apply(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].content || []).join(","), "0,1,2,3,253,254,255");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(Array.prototype.slice.apply(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].content || []).join(","), "0,1,2,3,253,254,255");
+            done();
         });
-    },
-    "Base64": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Base64", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: base64\r\n" +
             "\r\n" +
             "AAECA/3+/w==",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(Array.prototype.slice.apply(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].content || []).join(","), "0,1,2,3,253,254,255");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(Array.prototype.slice.apply(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].content || []).join(","), "0,1,2,3,253,254,255");
+            done();
         });
-    },
-    "8bit": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("8bit", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "\r\n" +
             "ÕÄÖÜ",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(Array.prototype.slice.apply(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].content || []).join(","), "195,149,195,132,195,150,195,156");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(Array.prototype.slice.apply(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].content || []).join(","), "195,149,195,132,195,150,195,156");
+            done();
         });
-    },
-    "UUENCODE": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("UUENCODE", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: uuencode\r\n" +
             "\r\n" +
             "begin 644 buffer.bin\r\n" +
@@ -424,35 +411,34 @@ exports["Binary attachment encodings"] = {
             "end",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments[0].content.toString(), "Cat");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments[0].content.toString(), "Cat");
+            done();
         });
-    }
+    });
+});
 
-};
-
-exports["Attachment Content-Id"] = {
-    "Default": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+describe("Attachment Content-Id", () => {
+    it("Default", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment; filename=\"=?UTF-8?Q?=C3=95=C3=84=C3=96=C3=9C?=\"\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].contentId, "7c7cf35ce5becf62faea56ed8d0ad6e4@mailparser");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].contentId, "7c7cf35ce5becf62faea56ed8d0ad6e4@mailparser");
+            done();
         });
-    },
+    });
 
-    "Defined": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    it("Defined", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment; filename=\"=?UTF-8?Q?=C3=95=C3=84=C3=96=C3=9C?=\"\r\n" +
             "Content-Id: test@localhost\r\n" +
@@ -460,49 +446,50 @@ exports["Attachment Content-Id"] = {
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].contentId, "test@localhost");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].contentId, "test@localhost");
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Attachment filename"] = {
-
-    "Content-Disposition filename": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+describe("Attachment filename", () => {
+    it("Content-Disposition filename", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment; filename=\"=?UTF-8?Q?=C3=95=C3=84=C3=96=C3=9C?=\"\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Content-Disposition filename*": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Content-Disposition filename*", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment; filename*=\"UTF-8''%C3%95%C3%84%C3%96%C3%9C\"\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Content-Disposition filename* with apostrophe": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Content-Disposition filename* with apostrophe", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment; \r\n" +
             "    filename*=utf-8''John%20Doe's.xls\r\n" +
@@ -510,15 +497,16 @@ exports["Attachment filename"] = {
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "John Doe's.xls");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "John Doe's.xls");
+            done();
         });
-    },
-    "Content-Disposition filename*X": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Content-Disposition filename*X", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment;\r\n" +
             "    filename*0=OA;\r\n" +
@@ -528,15 +516,16 @@ exports["Attachment filename"] = {
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "OAU.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "OAU.txt");
+            done();
         });
-    },
-    "Content-Disposition filename*X*": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Content-Disposition filename*X*", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment;\r\n" +
             "    filename*0*=UTF-8''%C3%95%C3%84;\r\n" +
@@ -545,15 +534,16 @@ exports["Attachment filename"] = {
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Content-Disposition filename*X* mixed": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Content-Disposition filename*X* mixed", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "Content-Disposition: attachment;\r\n" +
             "    filename*0*=UTF-8''%C3%95%C3%84;\r\n" +
@@ -563,64 +553,65 @@ exports["Attachment filename"] = {
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ.txt");
+            done();
         });
-    },
+    });
 
-    "Content-Type name": function(test) {
-        var encodedText = "Content-Type: application/octet-stream; name=\"=?UTF-8?Q?=C3=95=C3=84=C3=96=C3=9C?=\"\r\n" +
+    it("Content-Type name", (done) => {
+        const encodedText = "Content-Type: application/octet-stream; name=\"=?UTF-8?Q?=C3=95=C3=84=C3=96=C3=9C?=\"\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
+            done();
         });
-    },
-    /*
-    "Content-Type ; name": function(test) {
-        var encodedText = "Content-Type: ; name=\"test\"\r\n" +
+    });
+
+    it("Content-Type ; name", (done) => {
+        const encodedText = "Content-Type: ; name=\"test\"\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
         mailparser.write(mail);
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].fileName, "test");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].fileName, "test");
+            done();
         });
-    },
-    */
-    "Content-Type name*": function(test) {
-        var encodedText = "Content-Type: application/octet-stream;\r\n" +
+    });
+
+    it("Content-Type name*", (done) => {
+        const encodedText = "Content-Type: application/octet-stream;\r\n" +
             "    name*=UTF-8''%C3%95%C3%84%C3%96%C3%9C\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Content-Type name*X*": function(test) {
-        var encodedText = "Content-Type: application/octet-stream;\r\n" +
+    });
+
+    it("Content-Type name*X*", (done) => {
+        const encodedText = "Content-Type: application/octet-stream;\r\n" +
             "    name*0*=UTF-8''%C3%95%C3%84;\r\n" +
             "    name*1*=%C3%96%C3%9C\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
@@ -628,43 +619,46 @@ exports["Attachment filename"] = {
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Default name from Content-type": function(test) {
-        var encodedText = "Content-Type: application/pdf\r\n" +
+    });
+
+    it("Default name from Content-type", (done) => {
+        const encodedText = "Content-Type: application/pdf\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.pdf");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.pdf");
+            done();
         });
-    },
-    "Default name": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Default name", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
             "\r\n" +
             "=00=01=02=03=FD=FE=FF",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.bin");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.bin");
+            done();
         });
-    },
-    "Multiple filenames - Same": function(test) {
-        var encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Multiple filenames - Same", (done) => {
+        const encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream; name=\"test.txt\"\r\n" +
@@ -677,16 +671,17 @@ exports["Attachment filename"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "test.txt");
-            test.equal(mail.attachments && mail.attachments[1] && mail.attachments[1].content && mail.attachments[1].generatedFileName, "test-1.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "test.txt");
+            assert.strictEqual(mail.attachments && mail.attachments[1] && mail.attachments[1].content && mail.attachments[1].generatedFileName, "test-1.txt");
+            done();
         });
-    },
-    "Multiple filenames - Different": function(test) {
-        var encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Multiple filenames - Different", (done) => {
+        const encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -699,16 +694,17 @@ exports["Attachment filename"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.bin");
-            test.equal(mail.attachments && mail.attachments[1] && mail.attachments[1].content && mail.attachments[1].generatedFileName, "test.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.bin");
+            assert.strictEqual(mail.attachments && mail.attachments[1] && mail.attachments[1].content && mail.attachments[1].generatedFileName, "test.txt");
+            done();
         });
-    },
-    "Multiple filenames - with number": function(test) {
-        var encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Multiple filenames - with number", (done) => {
+        const encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream; name=\"somename.txt\"\r\n" +
@@ -729,18 +725,19 @@ exports["Attachment filename"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "somename.txt");
-            test.equal(mail.attachments && mail.attachments[1] && mail.attachments[1].content && mail.attachments[1].generatedFileName, "somename-1-1.txt");
-            test.equal(mail.attachments && mail.attachments[2] && mail.attachments[2].content && mail.attachments[2].generatedFileName, "somename-2.txt");
-            test.equal(mail.attachments && mail.attachments[3] && mail.attachments[3].content && mail.attachments[3].generatedFileName, "somename-1-1-3.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "somename.txt");
+            assert.strictEqual(mail.attachments && mail.attachments[1] && mail.attachments[1].content && mail.attachments[1].generatedFileName, "somename-1-1.txt");
+            assert.strictEqual(mail.attachments && mail.attachments[2] && mail.attachments[2].content && mail.attachments[2].generatedFileName, "somename-2.txt");
+            assert.strictEqual(mail.attachments && mail.attachments[3] && mail.attachments[3].content && mail.attachments[3].generatedFileName, "somename-1-1-3.txt");
+            done();
         });
-    },
-    "Generate filename from Content-Type": function(test) {
-        var encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Generate filename from Content-Type", (done) => {
+        const encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/pdf\r\n" +
@@ -749,15 +746,16 @@ exports["Attachment filename"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.pdf");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "attachment.pdf");
+            done();
         });
-    },
-    "Filename with semicolon": function(test) {
-        var encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Filename with semicolon", (done) => {
+        const encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Disposition: attachment; filename=\"hello;world;test.txt\"\r\n" +
@@ -766,15 +764,16 @@ exports["Attachment filename"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "hello;world;test.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "hello;world;test.txt");
+            done();
         });
-    },
-    "UUE filename with special characters": function(test) {
-        var encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("UUE filename with special characters", (done) => {
+        const encodedText = "Content-Type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -788,280 +787,301 @@ exports["Attachment filename"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "hello ~!@#%.txt");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].generatedFileName, "hello ~!@#%.txt");
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Plaintext format"] = {
-    "Default": function(test) {
-        var encodedText = "Content-Type: text/plain;\r\n\r\nFirst line \r\ncontinued",
+describe("Plaintext format", () => {
+    it("Default", (done) => {
+        const encodedText = "Content-Type: text/plain;\r\n\r\nFirst line \r\ncontinued",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "First line \ncontinued");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "First line \ncontinued");
+            done();
         });
-    },
-    "Flowed": function(test) {
-        var encodedText = "Content-Type: text/plain; format=flowed\r\n\r\nFirst line \r\ncontinued \r\nand so on",
+    });
+
+    it("Flowed", (done) => {
+        const encodedText = "Content-Type: text/plain; format=flowed\r\n\r\nFirst line \r\ncontinued \r\nand so on",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "First line continued and so on");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "First line continued and so on");
+            done();
         });
-    },
-    "Flowed Signature": function(test) {
-        var encodedText = "Content-Type: text/plain; format=flowed\r\n\r\nHow are you today?\r\n" +
+    });
+
+    it("Flowed Signature", (done) => {
+        const encodedText = "Content-Type: text/plain; format=flowed\r\n\r\nHow are you today?\r\n" +
             "-- \r\n" +
             "Signature\r\n",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "How are you today?\n-- \nSignature\n");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "How are you today?\n-- \nSignature\n");
+            done();
         });
-    },
-    "Fixed": function(test) {
-        var encodedText = "Content-Type: text/plain; format=fixed\r\n\r\nFirst line \r\ncontinued \r\nand so on",
+    });
+
+    it("Fixed", (done) => {
+        const encodedText = "Content-Type: text/plain; format=fixed\r\n\r\nFirst line \r\ncontinued \r\nand so on",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "First line \ncontinued \nand so on");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "First line \ncontinued \nand so on");
+            done();
         });
-    },
-    "DelSp": function(test) {
-        var encodedText = "Content-Type: text/plain; format=flowed; delsp=yes\r\n\r\nFirst line \r\ncontinued \r\nand so on",
+    });
+
+    it("DelSp", (done) => {
+        const encodedText = "Content-Type: text/plain; format=flowed; delsp=yes\r\n\r\nFirst line \r\ncontinued \r\nand so on",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "First linecontinuedand so on");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "First linecontinuedand so on");
+            done();
         });
-    },
-    "Quoted printable, Flowed": function(test) {
-        var encodedText = "Content-Type: text/plain; format=flowed\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nFoo =\n\nBar =\n\nBaz",
+    });
+
+    it("Quoted printable, Flowed", (done) => {
+        const encodedText = "Content-Type: text/plain; format=flowed\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nFoo =\n\nBar =\n\nBaz",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "Foo Bar Baz");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "Foo Bar Baz");
+            done();
         });
-    },
-    "Quoted printable, Flowed Signature": function(test) {
-        var encodedText = "Content-Type: text/plain; format=flowed\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nHow are you today?\r\n" +
+    });
+
+    it("Quoted printable, Flowed Signature", (done) => {
+        const encodedText = "Content-Type: text/plain; format=flowed\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nHow are you today?\r\n" +
             "--=20\r\n" +
             "Signature\r\n",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "How are you today?\n-- \nSignature\n");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "How are you today?\n-- \nSignature\n");
+            done();
         });
-    },
-    "Quoted printable, DelSp": function(test) {
-        var encodedText = "Content-Type: text/plain; format=flowed; delsp=yes\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nFoo =\n\nBar =\n\nBaz",
+    });
+
+    it("Quoted printable, DelSp", (done) => {
+        const encodedText = "Content-Type: text/plain; format=flowed; delsp=yes\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nFoo =\n\nBar =\n\nBaz",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "FooBarBaz");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "FooBarBaz");
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Transfer encoding"] = {
-    "Quoted-Printable Default charset": function(test) {
-        var encodedText = "Content-type: text/plain\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n=D5=C4=D6=DC",
+describe("Transfer encoding", () => {
+    it("Quoted-Printable Default charset", (done) => {
+        const encodedText = "Content-type: text/plain\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n=D5=C4=D6=DC",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Quoted-Printable UTF-8": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\n=C3=95=C3=84=C3=96=C3=9C",
+    });
+
+    it("Quoted-Printable UTF-8", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\n=C3=95=C3=84=C3=96=C3=9C",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Base64 Default charset": function(test) {
-        var encodedText = "Content-type: text/plain\r\nContent-Transfer-Encoding: bAse64\r\n\r\n1cTW3A==",
+    });
+
+    it("Base64 Default charset", (done) => {
+        const encodedText = "Content-type: text/plain\r\nContent-Transfer-Encoding: bAse64\r\n\r\n1cTW3A==",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Base64 UTF-8": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: bAse64\r\n\r\nw5XDhMOWw5w=",
+    });
+
+    it("Base64 UTF-8", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: bAse64\r\n\r\nw5XDhMOWw5w=",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Mime Words": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\nSubject: =?iso-8859-1?Q?Avaldu?= =?iso-8859-1?Q?s_lepingu_?=\r\n =?iso-8859-1?Q?l=F5petamise?= =?iso-8859-1?Q?ks?=\r\n",
+    });
+
+    it("Mime Words", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\nSubject: =?iso-8859-1?Q?Avaldu?= =?iso-8859-1?Q?s_lepingu_?=\r\n =?iso-8859-1?Q?l=F5petamise?= =?iso-8859-1?Q?ks?=\r\n",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.subject, "Avaldus lepingu lõpetamiseks");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.subject, "Avaldus lepingu lõpetamiseks");
+            done();
         });
-    },
-    "Mime Words with invalid linebreaks (Sparrow)": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\n" +
+    });
+
+    it("Mime Words with invalid linebreaks (Sparrow)", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\n" +
             "Subject: abc=?utf-8?Q?=C3=B6=C\r\n" +
             " 3=B5=C3=BC?=",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.subject, "abcöõü");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.subject, "abcöõü");
+            done();
         });
-    },
-    "8bit Default charset": function(test) {
-        var encodedText = "Content-type: text/plain\r\nContent-Transfer-Encoding: 8bit\r\n\r\nÕÄÖÜ",
-            textmap = encodedText.split('').map(function(chr) {
+    });
+
+    it("8bit Default charset", (done) => {
+        const encodedText = "Content-type: text/plain\r\nContent-Transfer-Encoding: 8bit\r\n\r\nÕÄÖÜ",
+            textmap = encodedText.split('').map((chr) => {
                 return chr.charCodeAt(0);
             }),
             mail = new Buffer(textmap);
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "8bit UTF-8": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nÕÄÖÜ",
+    });
+
+    it("8bit UTF-8", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: 8bit\r\n\r\nÕÄÖÜ",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Invalid Quoted-Printable": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\n==C3==95=C3=84=C3=96=C3=9C=",
+    });
+
+    it("Invalid Quoted-Printable", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\n==C3==95=C3=84=C3=96=C3=9C=",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "=�=�ÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "=�=�ÄÖÜ");
+            done();
         });
-    },
-    "Invalid BASE64": function(test) {
-        var encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\nw5XDhMOWw5",
+    });
+
+    it("Invalid BASE64", (done) => {
+        const encodedText = "Content-type: text/plain; charset=utf-8\r\nContent-Transfer-Encoding: base64\r\n\r\nw5XDhMOWw5",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(Array.prototype.map.call(mail.text, function(chr) {
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(Array.prototype.map.call(mail.text, (chr) => {
                 return chr.charCodeAt(0);
             }).join(","), "213,196,214,65533");
-            test.done();
+            done();
         });
-    },
-    "gb2312 mime words": function(test) {
-        var encodedText = "From: =?gb2312?B?086yyZjl?= user@ldkf.com.tw\r\n\r\nBody",
+    });
+
+    it("gb2312 mime words", (done) => {
+        const encodedText = "From: =?gb2312?B?086yyZjl?= user@ldkf.com.tw\r\n\r\nBody",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.deepEqual(mail.from, [{
+        mailparser.on("end", (mail) => {
+            assert.deepStrictEqual(mail.from, [{
                 address: 'user@ldkf.com.tw',
                 name: '游采樺'
             }]);
-            test.done();
+            done();
         });
-    },
-    "Valid Date header": function(test) {
-        var encodedText = "Date: Wed, 08 Jan 2014 09:52:26 -0800\r\n\r\n1cTW3A==",
+    });
+
+    it("Valid Date header", (done) => {
+        const encodedText = "Date: Wed, 08 Jan 2014 09:52:26 -0800\r\n\r\n1cTW3A==",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.date.toISOString(), "2014-01-08T17:52:26.000Z");
-            test.equal(mail.headers.date, "Wed, 08 Jan 2014 09:52:26 -0800");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.date.toISOString(), "2014-01-08T17:52:26.000Z");
+            assert.strictEqual(mail.headers.date, "Wed, 08 Jan 2014 09:52:26 -0800");
+            done();
         });
-    },
-    "Invalid Date header": function(test) {
-        var encodedText = "Date: zzzzz\r\n\r\n1cTW3A==",
+    });
+
+    it("Invalid Date header", (done) => {
+        const encodedText = "Date: zzzzz\r\n\r\n1cTW3A==",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.ok(!mail.date);
-            test.equal(mail.headers.date, "zzzzz");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.ok(!mail.date);
+            assert.strictEqual(mail.headers.date, "zzzzz");
+            done();
         });
-    },
-    "Missing Date header": function(test) {
-        var encodedText = "Subject: test\r\n\r\n1cTW3A==",
+    });
+
+    it("Missing Date header", (done) => {
+        const encodedText = "Subject: test\r\n\r\n1cTW3A==",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.ok(!mail.date);
-            test.equal(mail.headers.date, undefined);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.ok(!mail.date);
+            assert.strictEqual(mail.headers.date, undefined);
+            done();
         });
-    },
-    "Received Headers": function(test) {
-        var encodedTest = "Received: by 10.25.25.72 with SMTP id 69csp2404548lfz;\r\n" +
+    });
+
+    it("Received Headers", (done) => {
+        const encodedTest = "Received: by 10.25.25.72 with SMTP id 69csp2404548lfz;\r\n" +
             "        Fri, 6 Feb 2015 20:15:32 -0800 (PST)\r\n" +
             "X-Received: by 10.194.200.68 with SMTP id jq4mr7518476wjc.128.1423264531879;\r\n" +
             "        Fri, 06 Feb 2015 15:15:31 -0800 (PST)\r\n" +
@@ -1077,32 +1097,33 @@ exports["Transfer encoding"] = {
             "1cTW3A==",
             mail = new Buffer(encodedTest, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.ok(mail.date);
-            test.ok(mail.receivedDate);
-            test.equal(mail.date.toISOString(), "2015-02-06T23:13:51.000Z");
-            test.equal(mail.receivedDate.toISOString(), "2015-02-07T04:15:32.000Z");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.ok(mail.date);
+            assert.ok(mail.receivedDate);
+            assert.strictEqual(mail.date.toISOString(), "2015-02-06T23:13:51.000Z");
+            assert.strictEqual(mail.receivedDate.toISOString(), "2015-02-07T04:15:32.000Z");
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Multipart content"] = {
-    "Simple": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n\r\n--ABC\r\nContent-type: text/plain; charset=utf-8\r\n\r\nÕÄÖÜ\r\n--ABC--",
+describe("Multipart content", () => {
+    it("Simple", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n\r\n--ABC\r\nContent-type: text/plain; charset=utf-8\r\n\r\nÕÄÖÜ\r\n--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Nested": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Nested", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-type: multipart/related; boundary=DEF\r\n" +
@@ -1115,15 +1136,16 @@ exports["Multipart content"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Inline text (Sparrow)": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Inline text (Sparrow)", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: text/plain; charset=\"utf-8\"\r\n" +
@@ -1134,15 +1156,16 @@ exports["Multipart content"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ");
+            done();
         });
-    },
-    "Different Levels": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Different Levels", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-type: text/html; charset=utf-8\r\n" +
@@ -1159,20 +1182,20 @@ exports["Multipart content"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
         mailparser.end(mail);
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "ÕÄÖÜ1");
-            test.equal(mail.html, "ÕÄÖÜ2");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "ÕÄÖÜ1");
+            assert.strictEqual(mail.html, "ÕÄÖÜ2");
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Attachment info"] = {
-    "Included integrity": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+describe("Attachment info", () => {
+    it("Included integrity", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1184,21 +1207,22 @@ exports["Attachment info"] = {
             expectedHash = "9aa461e1eca4086f9230aa49c90b0c61",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 7);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 7);
+            done();
         });
-    },
-    "Stream integrity base64": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Stream integrity base64", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1210,30 +1234,33 @@ exports["Attachment info"] = {
             expectedHash = "9aa461e1eca4086f9230aa49c90b0c61",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(3);
 
-        mailparser.on("attachment", function(attachment) {
-            test.ok(attachment.stream, "Stream detected");
+        let count = 0;
+        mailparser.on("attachment", (attachment) => {
+            count++;
+            assert.ok(attachment.stream, "Stream detected");
         });
 
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 7);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(count, 1);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 7);
+            done();
         });
-    },
-    "Stream integrity - 8bit": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Stream integrity - 8bit", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1246,31 +1273,33 @@ exports["Attachment info"] = {
             expectedHash = "cad0f72629a7245dd3d2cbf41473e3ca",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(4);
-
-        mailparser.on("attachment", function(attachment, node) {
-            test.ok(attachment.stream, "Stream detected");
-            test.ok(node);
+        let count = 0;
+        mailparser.on("attachment", (attachment, node) => {
+            count++;
+            assert.ok(attachment.stream, "Stream detected");
+            assert.ok(node);
         });
 
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(count, 1);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
+            done();
         });
-    },
-    "Stream integrity - binary, non utf-8": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Stream integrity - binary, non utf-8", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1284,30 +1313,32 @@ exports["Attachment info"] = {
             expectedHash = "34bca86f8cc340bbd11446ee16ee3cae",
             mail = encodinglib.convert(encodedText, "latin-13");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(3);
-
-        mailparser.on("attachment", function(attachment) {
-            test.ok(attachment.stream, "Stream detected");
+        let count = 0;
+        mailparser.on("attachment", (attachment) => {
+            count++;
+            assert.ok(attachment.stream, "Stream detected");
         });
 
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(count, 1);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
+            done();
         });
-    },
-    "Stream integrity - qp, non utf-8": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Stream integrity - qp, non utf-8", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream; charset=iso-8859-13\r\n" +
@@ -1321,30 +1352,32 @@ exports["Attachment info"] = {
             expectedHash = "34bca86f8cc340bbd11446ee16ee3cae",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(3);
-
-        mailparser.on("attachment", function(attachment) {
-            test.ok(attachment.stream, "Stream detected");
+        let count = 0;
+        mailparser.on("attachment", (attachment) => {
+            count++;
+            assert.ok(attachment.stream, "Stream detected");
         });
 
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(count, 1);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
+            done();
         });
-    },
-    "Stream integrity - uuencode": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Stream integrity - uuencode", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1358,30 +1391,32 @@ exports["Attachment info"] = {
             expectedHash = "fa3ebd6742c360b2d9652b7f78d9bd7d",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(3);
-
-        mailparser.on("attachment", function(attachment) {
-            test.ok(attachment.stream, "Stream detected");
+        let count = 0;
+        mailparser.on("attachment", (attachment) => {
+            count++;
+            assert.ok(attachment.stream, "Stream detected");
         });
 
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 3);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(count, 1);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 3);
+            done();
         });
-    },
-    "Attachment in root node": function(test) {
-        var encodedText = "Content-Type: application/octet-stream\r\n" +
+    });
+
+    it("Attachment in root node", (done) => {
+        const encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: 8bit\r\n" +
             "Content-Disposition: attachment\r\n" +
             "\r\n" +
@@ -1390,31 +1425,33 @@ exports["Attachment info"] = {
             expectedHash = "cad0f72629a7245dd3d2cbf41473e3ca",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(4);
-
-        mailparser.on("attachment", function(attachment, node) {
-            test.ok(attachment.stream, "Stream detected");
-            test.ok(node);
+        let count = 0;
+        mailparser.on("attachment", (attachment, node) => {
+            count++;
+            assert.ok(attachment.stream, "Stream detected");
+            assert.ok(node);
         });
 
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert(count, 1);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].checksum, expectedHash);
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].length, 10);
+            done();
         });
-    },
-    "Stream multiple attachments": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Stream multiple attachments", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1437,24 +1474,26 @@ exports["Attachment info"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        test.expect(3); // should be 3 attachments
-        mailparser.on("attachment", function(attachment) {
-            test.ok(attachment.stream, "Stream detected");
+        let count = 0; // should be 3 attachments
+        mailparser.on("attachment", (attachment) => {
+            assert.ok(attachment.stream, "Stream detected");
+            count++;
         });
 
         mailparser.end(mail);
 
-        mailparser.on("end", function() {
-            test.done();
+        mailparser.on("end", () => {
+            assert.strictEqual(count, 3);
+            done();
         });
-    },
+    });
 
-    "Pass mail node to headers event": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    it("Pass mail node to attachment event", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "Subject: ABCDEF\r\n" +
             "\r\n" +
             "--ABC\r\n" +
@@ -1466,29 +1505,30 @@ exports["Attachment info"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             streamAttachments: true
         });
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
-        test.expect(2);
-
-        mailparser.on("attachment", function(attachment, email) {
-            test.equal(email.subject, "ABCDEF");
+        let count = 0;
+        mailparser.on("attachment", (attachment, email) => {
+            count++;
+            assert.strictEqual(email.subject, "ABCDEF");
         });
 
         mailparser.end();
 
-        mailparser.on("end", function() {
-            test.ok(1, "Done");
-            test.done();
+        mailparser.on("end", () => {
+            assert.strictEqual(count, 1);
+            done();
         });
-    },
-    "Detect Content-Type by filename": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    });
+
+    it("Detect Content-Type by filename", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
@@ -1499,19 +1539,19 @@ exports["Attachment info"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
         mailparser.write(mail);
         mailparser.end();
 
-        mailparser.on("end", function(mail) {
-            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].contentType, "application/pdf");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].contentType, "application/pdf");
+            done();
         });
-    },
+    });
 
-    "Inline attachments": function(test) {
-        var encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+    it("Inline attachments", (done) => {
+        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
             "X-Test: =?UTF-8?Q?=C3=95=C3=84?= =?UTF-8?Q?=C3=96=C3=9C?=\r\n" +
             "Subject: ABCDEF\r\n" +
             "\r\n" +
@@ -1532,121 +1572,117 @@ exports["Attachment info"] = {
             "--ABC--",
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser({
+        const mailparser = new MailParser({
             showAttachmentLinks: true
         });
 
         mailparser.end(mail);
-        mailparser.on("end", function(mail) {
-            test.equal(mail.html, '<p>test 1</p><br/>\n\n<div class="mailparser-attachment"><a href="cid:754dc77d28e62763c4916970d595a10f@mailparser">&lt;test.pdf&gt;</a></div><br/>\n<p>test 2</p>');
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.html, '<p>test 1</p><br/>\n\n<div class="mailparser-attachment"><a href="cid:754dc77d28e62763c4916970d595a10f@mailparser">&lt;test.pdf&gt;</a></div><br/>\n<p>test 2</p>');
+            done();
         });
-    }
-};
+    });
+});
 
-exports["Additional text"] = function(test) {
-  var mail = fs.readFileSync(__dirname + "/mixed.eml");
+describe("Additional text after alternative bodies", () => {
+    it("should be appended to both alternatives", (done) => {
+        const mail = fs.readFileSync(__dirname + "/mixed.eml");
 
-  test.expect(2);
-  var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-  for (var i = 0, len = mail.length; i < len; i++) {
-    mailparser.write(new Buffer([mail[i]]));
-  }
+        for (let i = 0, len = mail.length; i < len; i++) {
+            mailparser.write(new Buffer([mail[i]]));
+        }
 
-  mailparser.end();
-  mailparser.on("end", function(mail) {
-    test.equal(mail.text, "\nThis e-mail message has been scanned for Viruses and Content and cleared\nGood Morning;\n\n");
-    test.equal(mail.html, "<HTML><HEAD>\n</HEAD><BODY> \n\n<HR>\nThis e-mail message has been scanned for Viruses and Content and cleared\n<HR>\n</BODY></HTML>\nGood Morning;\n\n");
-    test.done();
-  });
-};
+        mailparser.end();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "\nThis e-mail message has been scanned for Viruses and Content and cleared\nGood Morning;\n\n");
+            assert.strictEqual(mail.html, "<HTML><HEAD>\n</HEAD><BODY> \n\n<HR>\nThis e-mail message has been scanned for Viruses and Content and cleared\n<HR>\n</BODY></HTML>\nGood Morning;\n\n");
+            done();
+        });
+    });
+});
 
-exports["MBOX format"] = {
-    "Not a mbox": function(test) {
-        var encodedText = "Content-Type: text/plain; charset=utf-8\r\n" +
+describe("MBOX format", () => {
+    it("Not a mbox", (done) => {
+        const encodedText = "Content-Type: text/plain; charset=utf-8\r\n" +
             "\r\n" +
             "ÕÄ\r\n" +
             "ÖÜ", // \r\nÕÄÖÜ
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
         mailparser.end();
-        mailparser.on("end", function() {
-            test.equal(mailparser._isMbox, false);
-            test.done();
+        mailparser.on("end", () => {
+            assert.strictEqual(mailparser._isMbox, false);
+            done();
         });
-    },
+    });
 
-    "Is a mbox": function(test) {
-        var encodedText = "From MAILER-DAEMON Fri Jul  8 12:08:34 2011\r\n" +
+    it("Is a mbox", (done) => {
+        const encodedText = "From MAILER-DAEMON Fri Jul  8 12:08:34 2011\r\n" +
             "Content-Type: text/plain; charset=utf-8\r\n" +
             "\r\n" +
             "ÕÄ\r\n" +
             "ÖÜ", // \r\nÕÄÖÜ
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
         mailparser.end();
-        mailparser.on("end", function() {
-            test.equal(mailparser._isMbox, true);
-            test.done();
+        mailparser.on("end", () => {
+            assert.strictEqual(mailparser._isMbox, true);
+            done();
         });
-    },
+    });
 
-    "Don't unescape '>From '": function(test) {
-        var encodedText = "Content-Type: text/plain; charset=utf-8\r\n" +
+    it("Don't unescape '>From '", (done) => {
+        const encodedText = "Content-Type: text/plain; charset=utf-8\r\n" +
             "\r\n" +
             ">From test\r\n" +
             ">>From pest", // \r\nÕÄÖÜ
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
         mailparser.end();
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, ">From test\n>>From pest");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, ">From test\n>>From pest");
+            done();
         });
-    },
+    });
 
-    "Unescape '>From '": function(test) {
-        var encodedText = "From MAILER-DAEMON Fri Jul  8 12:08:34 2011\r\n" +
+    it("Unescape '>From '", (done) => {
+        const encodedText = "From MAILER-DAEMON Fri Jul  8 12:08:34 2011\r\n" +
             "Content-Type: text/plain; charset=utf-8\r\n" +
             "\r\n" +
             ">From test\r\n" +
             ">>From pest", // \r\nÕÄÖÜ
             mail = new Buffer(encodedText, "utf-8");
 
-        test.expect(1);
-        var mailparser = new MailParser();
+        const mailparser = new MailParser();
 
-        for (var i = 0, len = mail.length; i < len; i++) {
+        for (let i = 0, len = mail.length; i < len; i++) {
             mailparser.write(new Buffer([mail[i]]));
         }
 
         mailparser.end();
-        mailparser.on("end", function(mail) {
-            test.equal(mail.text, "From test\n>From pest");
-            test.done();
+        mailparser.on("end", (mail) => {
+            assert.strictEqual(mail.text, "From test\n>From pest");
+            done();
         });
-    }
-};
+    });
+});

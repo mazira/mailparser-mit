@@ -14,7 +14,7 @@
     "url": "http://github.com/mazira/mailparser-mit.git"
   },
   "scripts": {
-    "test": "nodeunit test/"
+    "test": "mocha"
   },
   "main": "./lib/mailparser",
   "license": "MIT",
@@ -27,7 +27,7 @@
     "uue": "^3.1.0"
   },
   "devDependencies": {
-    "nodeunit": "^0.10.2"
+    "mocha": "^3.4.2"
   },
   "keywords": [
     "mailparser",
