@@ -9,7 +9,13 @@ in chunks and streamed if needed.
 
 ## Community version
 
-This module is a fork of Andris Reinman's [MailParser](https://github.com/nodemailer/mailparser) module, which recently switched licenses during a large update. I will continue to update and maintain this fork and keep it MIT licensed.
+This module is a fork of Andris Reinman's [MailParser](https://github.com/nodemailer/mailparser)
+module, which recently switched licenses during a large update. I will continue to update and
+maintain this fork and keep it MIT licensed.
+
+For easier maintenance, I have also started to move some dependency code into this project from Andris's other projects.
+So far I have incorporated code from the latest MIT-licensed versions of
+[libmime](https://github.com/nodemailer/libmime) and [libpq](https://github.com/nodemailer/libqp).
 
 Because I've accepted the part of me that wants to fix things that aren't broken, I plan to:
 - Convert to TypeScript
