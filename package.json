@@ -3,10 +3,12 @@
   "description": "MIT-licensed asynchronous and non-blocking parser for mime encoded e-mail messages",
   "version": "0.6.2",
   "author": "Andris Reinman",
-  "maintainers": [{
-    "name": "Ross Johnson",
-    "email": "ross@mazira.com"
-  }],
+  "maintainers": [
+    {
+      "name": "Ross Johnson",
+      "email": "ross@mazira.com"
+    }
+  ],
   "repository": {
     "type": "git",
     "url": "http://github.com/mazira/mailparser-mit.git"
@@ -17,8 +19,10 @@
   "main": "./lib/mailparser",
   "license": "MIT",
   "dependencies": {
-    "mimelib": "^0.3.0",
+    "addressparser": "^1.0.1",
     "encoding": "^0.1.12",
+    "libmime": "^3.1.0",
+    "libqp": "^1.1.0",
     "mime": "^1.3.4",
     "uue": "^3.1.0"
   },

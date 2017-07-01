@@ -501,6 +501,22 @@ exports["Attachment filename"] = {
             test.done();
         });
     },
+    "Content-Disposition filename* with apostrophe": function(test) {
+        var encodedText = "Content-Type: application/octet-stream\r\n" +
+            "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
+            "Content-Disposition: attachment; \r\n" +
+            "    filename*=utf-8''John%20Doe's.xls\r\n" +
+            "\r\n" +
+            "=00=01=02=03=FD=FE=FF",
+            mail = new Buffer(encodedText, "utf-8");
+
+        var mailparser = new MailParser();
+        mailparser.end(mail);
+        mailparser.on("end", function(mail) {
+            test.equal(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, "John Doe's.xls");
+            test.done();
+        });
+    },
     "Content-Disposition filename*X": function(test) {
         var encodedText = "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
@@ -852,7 +868,7 @@ exports["Plaintext format"] = {
     },
     "Quoted printable, Flowed Signature": function(test) {
         var encodedText = "Content-Type: text/plain; format=flowed\r\nContent-Transfer-Encoding: QUOTED-PRINTABLE\r\n\r\nHow are you today?\r\n" +
-            "-- \r\n" +
+            "--=20\r\n" +
             "Signature\r\n",
             mail = new Buffer(encodedText, "utf-8");
 
