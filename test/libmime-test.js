@@ -126,10 +126,6 @@ describe('libmime', () => {
             expect(libmime.decodeWords(output2)).to.equal(input2);
         });
 
-        it('should join before parsing', () => {
-            expect('GLG: Regulation of Taxi in China - 张一兵').to.equal(libmime.decodeWords('=?utf-8?B?R0xHOiBSZWd1bGF0aW9uIG9mIFRheGkgaW4gQ2hpbmEgLSDl?= =?utf-8?B?vKDkuIDlhbU=?='));
-        });
-
         it('should split QP on maxLength', () => {
             var inputStr = 'Jõgeva Jõgeva Jõgeva mugeva Jõgeva Jõgeva Jõgeva Jõgeva Jõgeva',
                 outputStr = '=?UTF-8?Q?J=C3=B5geva_?= =?UTF-8?Q?J=C3=B5geva_?= =?UTF-8?Q?J=C3=B5geva_?= =?UTF-8?Q?mugeva_J?= =?UTF-8?Q?=C3=B5geva_J?= =?UTF-8?Q?=C3=B5geva_J?= =?UTF-8?Q?=C3=B5geva_J?= =?UTF-8?Q?=C3=B5geva_J?= =?UTF-8?Q?=C3=B5geva?=',
@@ -152,8 +148,34 @@ describe('libmime', () => {
             expect('Hello: See on õhin test').to.equal(libmime.decodeWords('Hello: =?UTF-8*EN?q?See_on_=C3=B5hin_test?='));
         });
 
-        it('should handle invalidly split mime words', () => {
-            expect('гос (передай кому надо тоже').to.equal(libmime.decodeWords('=?utf-8?Q?=D0=B3=D0=BE=D1=81_?==?utf-8?Q?(=D0=BF=D0=B5=D1=80=D0=B5=\r\n D0=B4=D0=B0=D0=B9_=D0=BA=D0=BE=D0?=\r\n =?utf-8?Q?=BC=D1=83_=D0=BD=D0=B0=D0=B4=D0=BE_=D1=82=D0=BE=D0=B6=D0=B5?='));
+        it('should handle chars invalidly split across base64-encoded words', () => {
+            const input = '=?utf-8?B?R0xHOiBSZWd1bGF0aW9uIG9mIFRheGkgaW4gQ2hpbmEgLSDl?= =?utf-8?B?vKDkuIDlhbU=?=';
+            const output = 'GLG: Regulation of Taxi in China - 张一兵';
+            expect(libmime.decodeWords(input)).to.equal(output);
+        });
+
+        it('should handle chars invalidly split across base64-encoded words (> 2 splits)', () => {
+            const input = '=?utf-8?B?R0xHOiBSZWd1bGF0aW9uIG9mIFRheGkgaW4gQ2hpbmEgLSDl?= =?utf-8?B?vKDkuIDl?= =?utf-8?B?hbU=?=';
+            const output = 'GLG: Regulation of Taxi in China - 张一兵';
+            expect(libmime.decodeWords(input)).to.equal(output);
+        });
+
+        it('should handle chars invalidly split across base64-encoded words (with empty word in between)', () => {
+            const input = '=?utf-8?B?R0xHOiBSZWd1bGF0aW9uIG9mIFRheGkgaW4gQ2hpbmEgLSDl?= =?utf-8?B??= =?utf-8?B?vKDkuIDlhbU=?=';
+            const output = 'GLG: Regulation of Taxi in China - 张一兵';
+            expect(libmime.decodeWords(input)).to.equal(output);
+        });
+
+        it('should handle chars invalidly spit across QP-encoded words', () => {
+            const input = '=?utf-8?Q?=D0=B3=D0=BE=D1=81_?==?utf-8?Q?(=D0=BF=D0=B5=D1=80=D0=B5=\r\n D0=B4=D0=B0=D0=B9_=D0=BA=D0=BE=D0?=\r\n =?utf-8?Q?=BC=D1=83_=D0=BD=D0=B0=D0=B4=D0=BE_=D1=82=D0=BE=D0=B6=D0=B5?=';
+            const output = 'гос (передай кому надо тоже';
+            expect(libmime.decodeWords(input)).to.equal(output);
+        });
+
+        it('should handle chars invalidly spit across QP-encoded words (with empty word in between)', () => {
+            const input = '=?utf-8?Q?=D0=B3=D0=BE=D1=81_?==?utf-8?Q??==?utf-8?Q?(=D0=BF=D0=B5=D1=80=D0=B5=\r\n D0=B4=D0=B0=D0=B9_=D0=BA=D0=BE=D0?=\r\n =?utf-8?Q?=BC=D1=83_=D0=BD=D0=B0=D0=B4=D0=BE_=D1=82=D0=BE=D0=B6=D0=B5?=';
+            const output = 'гос (передай кому надо тоже';
+            expect(libmime.decodeWords(input)).to.equal(output);
         });
     });
 
