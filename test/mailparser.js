@@ -3,7 +3,7 @@
 const fs = require('fs');
 const assert = require('assert');
 
-const encodinglib = require("encoding");
+const charsetEmitter = require("../lib/charset").emitter;
 const MailParser = require("../lib/mailparser").MailParser;
 
 describe("General tests", () => {
@@ -1299,19 +1299,19 @@ describe("Attachment info", () => {
     });
 
     it("Stream integrity - binary, non utf-8", (done) => {
-        const encodedText = "Content-type: multipart/mixed; boundary=ABC\r\n" +
+        const buf1 = Buffer.from("Content-type: multipart/mixed; boundary=ABC\r\n" +
             "\r\n" +
             "--ABC\r\n" +
             "Content-Type: application/octet-stream\r\n" +
             "Content-Transfer-Encoding: 8bit\r\n" +
             "Content-Disposition: attachment\r\n" +
-            "\r\n" +
-            "ÕÄ\r\n" +
-            "ÖÜ\r\n" +
-            "ŽŠ\r\n" +
-            "--ABC--",
-            expectedHash = "34bca86f8cc340bbd11446ee16ee3cae",
-            mail = encodinglib.convert(encodedText, "latin-13");
+            "\r\n", 'utf8');
+        // Attachment "ÕÄ\r\nÖÜ\r\nŽŠ" in ISO-8859-13
+        const buf2 = Buffer.from([0xD5, 0xC4, 13, 10, 0xD6, 0xDC, 13, 10, 0xDE, 0xD0]);
+        const buf3 = Buffer.from('\r\n--ABC--', 'utf8');
+
+        const expectedHash = "34bca86f8cc340bbd11446ee16ee3cae";
+        const mail = Buffer.concat([buf1, buf2, buf3]);
 
         const mailparser = new MailParser({
             streamAttachments: true
@@ -1683,6 +1683,224 @@ describe("MBOX format", () => {
         mailparser.on("end", (mail) => {
             assert.strictEqual(mail.text, "From test\n>From pest");
             done();
+        });
+    });
+});
+
+describe('Charset handling', () => {
+    const cases = [
+        // String and its ISO-8859-1 representation
+        { str: 'ÕÄÖÜ', buf: new Buffer('d5c4d6dc', 'hex') },
+        // String and its ISO-2022-JP representation
+        { str: '学校技術員研修検討会報告', buf: new Buffer('GyRCM1g5OzU7PVEwdzgmPSQ4IUYkMnFKczlwGyhC', 'base64') }
+    ];
+
+    describe('of textual bodies', () => {
+        it('should default to ISO-8859-1', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain\r\n' +
+                'Content-Transfer-Encoding: base64\r\n\r\n' +
+                cases[0].buf.toString('base64'), 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.text, cases[0].str);
+                done();
+            });
+        });
+
+        it('should fall back to Iconv', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain; charset=ISO-2022-JP\r\n' +
+                'Content-Transfer-Encoding: base64\r\n\r\n' +
+                cases[1].buf.toString('base64'), 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.text, cases[1].str);
+                done();
+            });
+        });
+
+        it('should default to ISO-8859-1 for unrecognized encoding (and emit error)', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain; charset=bad-encoding\r\n' +
+                'Content-Transfer-Encoding: base64\r\n\r\n' +
+                cases[0].buf.toString('base64'), 'utf8');
+
+            let count = 0;
+            charsetEmitter.on('charsetError', (err, charset) => {
+                count++;
+                assert.strictEqual(charset, 'bad-encoding');
+            });
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                charsetEmitter.removeAllListeners();
+                assert.strictEqual(count, 1);
+                assert.strictEqual(mail.text, cases[0].str);
+                done();
+            });
+        });
+    });
+
+    describe('of headers', () => {
+        it('should default to ISO-8859-1', (done) => {
+            const mail = Buffer.concat([
+                Buffer.from('Content-Type: text/plain\r\n', 'utf8'),
+                Buffer.from('Subject: ', 'utf8'),
+                cases[0].buf,
+                Buffer.from('\r\n\r\n1234', 'utf8')
+            ]);
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.subject, cases[0].str);
+                assert.strictEqual(mail.text, '1234');
+                done();
+            });
+        });
+
+        it('should use defined charset if provided', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain; charset=UTF-8\r\n' +
+                'Subject: ' + cases[0].str + '\r\n' +
+                '\r\n' +
+                '1234', 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.subject, cases[0].str);
+                assert.strictEqual(mail.text, '1234');
+                done();
+            });
+        });
+
+        it('should use mime-word charset if provided', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain; charset=UTF-8\r\n' +
+                'Subject: =?UTF-8?B?' + Buffer.from(cases[0].str, 'utf8').toString('base64') + '?=\r\n' +
+                '\r\n' +
+                '1234', 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.subject, cases[0].str);
+                assert.strictEqual(mail.text, '1234');
+                done();
+            });
+        });
+
+        it('should fall back to Iconv', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain\r\n' +
+                'Subject: =?ISO-2022-JP?B?' + cases[1].buf.toString('base64') + '?=\r\n' +
+                '\r\n' +
+                '1234', 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.subject, cases[1].str);
+                assert.strictEqual(mail.text, '1234');
+                done();
+            });
+        });
+
+        it('should fall back to ISO-8859-1 on unrecognized encoding (and emit an error)', (done) => {
+            const mail = Buffer.from('Content-Type: text/plain\r\n' +
+                'Subject: =?BAD-ENCODING?B?' + cases[0].buf.toString('base64') + '?=\r\n' +
+                '\r\n' +
+                '1234', 'utf8');
+
+            let count = 0;
+            charsetEmitter.on('charsetError', (err, charset) => {
+                count++;
+                assert.strictEqual(charset, 'BAD-ENCODING');
+            });
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                charsetEmitter.removeAllListeners();
+                assert.strictEqual(count >= 1, true);
+                assert.strictEqual(mail.subject, cases[0].str);
+                assert.strictEqual(mail.text, '1234');
+                done();
+            });
+        });
+    });
+
+    describe('of header parameters', () => {
+        it('should default to ISO-8859-1', (done) => {
+            const mail = Buffer.concat([
+                Buffer.from("Content-Type: application/octet-stream\r\n" +
+                    "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
+                    "Content-Disposition: attachment; filename=", 'utf8'),
+                cases[0].buf,
+                Buffer.from("\r\n" +
+                    "\r\n" +
+                    "=00=01=02=03=FD=FE=FF", 'utf8')
+            ]);
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on("end", (mail) => {
+                assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, cases[0].str);
+                done();
+            });
+        });
+
+        it('should use mime-word charset if provided', (done) => {
+            const mail = Buffer.from("Content-Type: application/octet-stream\r\n" +
+                "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
+                "Content-Disposition: attachment; filename==?ISO-UTF-8?B?" + Buffer.from(cases[0].str, 'utf8').toString('base64') + "?=\r\n" +
+                "\r\n" +
+                "=00=01=02=03=FD=FE=FF", 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, cases[0].str);
+                done();
+            });
+        });
+
+        it('should fall back to Iconv', (done) => {
+            const mail = Buffer.from("Content-Type: application/octet-stream\r\n" +
+                "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
+                "Content-Disposition: attachment; filename==?ISO-2022-JP?B?" + cases[1].buf.toString('base64') + "?=\r\n" +
+                "\r\n" +
+                "=00=01=02=03=FD=FE=FF", 'utf8');
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, cases[1].str);
+                done();
+            });
+        });
+
+        it('should fall back to ISO-8859-1 on unrecognized encoding (and emit an error)', (done) => {
+            const mail = Buffer.from("Content-Type: application/octet-stream\r\n" +
+                "Content-Transfer-Encoding: QUOTED-PRINTABLE\r\n" +
+                "Content-Disposition: attachment; filename==?BAD-CHARSET?B?" + cases[0].buf.toString('base64') + "?=\r\n" +
+                "\r\n" +
+                "=00=01=02=03=FD=FE=FF", 'utf8');
+
+            let count = 0;
+            charsetEmitter.on('charsetError', (err, charset) => {
+                count++;
+                assert.strictEqual(charset, 'BAD-CHARSET');
+            });
+
+            const mailparser = new MailParser();
+            mailparser.end(mail);
+            mailparser.on('end', (mail) => {
+                assert.strictEqual(count >= 1, true);
+                assert.strictEqual(mail.attachments && mail.attachments[0] && mail.attachments[0].content && mail.attachments[0].fileName, cases[0].str);
+                done();
+            });
         });
     });
 });

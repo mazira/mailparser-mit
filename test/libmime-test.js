@@ -12,11 +12,10 @@
  */
 'use strict';
 
-var libmime = require('../lib/libmime/index');
-var charset = require('../lib/libmime/charset');
+const libmime = require('../lib/libmime/index');
 
-var chai = require('chai');
-var expect = chai.expect;
+const chai = require('chai');
+const expect = chai.expect;
 chai.config.includeStack = true;
 
 describe('libmime', () => {
@@ -219,44 +218,6 @@ describe('libmime', () => {
                 ' > abc\r\n' +
                 'abc';
             expect(libmime.decodeFlowed(folded, true)).to.equal(str);
-        });
-    });
-
-    describe('#charset', () => {
-        describe('#encode', () => {
-            it('should encode UTF-8 to Buffer', () => {
-                var str = '신',
-                    encoded = new Buffer([0xEC, 0x8B, 0xA0]);
-
-                expect(encoded).to.deep.equal(charset.encode(str));
-            });
-        });
-
-        describe('#decode', () => {
-            it('should decode UTF-8 to Buffer', () => {
-                var str = '신',
-                    encoded = new Buffer([0xEC, 0x8B, 0xA0]);
-
-                expect(str).to.deep.equal(charset.decode(encoded));
-            });
-
-            it('should decode non UTF-8 Buffer', () => {
-                var str = '신',
-                    encoding = 'ks_c_5601-1987',
-                    encoded = new Buffer([0xBD, 0xC5]);
-
-                expect(str).to.deep.equal(charset.decode(encoded, encoding));
-            });
-        });
-
-        describe('#convert', () => {
-            it('should convert non UTF-8 to Buffer', () => {
-                var converted = new Buffer([0xEC, 0x8B, 0xA0]),
-                    encoding = 'ks_c_5601-1987',
-                    encoded = new Buffer([0xBD, 0xC5]);
-
-                expect(converted).to.deep.equal(charset.convert(encoded, encoding));
-            });
         });
     });
 });
