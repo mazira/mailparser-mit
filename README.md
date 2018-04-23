@@ -46,7 +46,7 @@ Since v0.4 `node-iconv` is not included by default as a dependency. If you need 
 
 ## Installation
 
-    npm install mailparser
+    npm install mailparser-mit
 
 ## Usage
 
